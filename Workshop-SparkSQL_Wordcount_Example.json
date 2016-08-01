@@ -1,1 +1,1351 @@
-{"paragraphs":[{"text":"%md\n\n# **Word Count Lab: Building a word count application**\n\nThis lab will demonstrate how you can use Spark to develop a simple word count application.  The volume of unstructured text in existence is growing dramatically, and Spark is an excellent tool for analyzing this type of data.  In this lab, we will write code that calculates the most common words in the [Complete Works of William Shakespeare](http://www.gutenberg.org/ebooks/100) retrieved from [Project Gutenberg](http://www.gutenberg.org/wiki/Main_Page).  This could also be scaled to larger applications, such as finding the most common words in Wikipedia.\n\n** During this lab we will cover: **\n* *Part 1:* Creating a base DataFrame and performing operations\n* *Part 2:* Counting with Spark SQL and DataFrames\n* *Part 3:* Finding unique words and a mean value\n* *Part 4:* Apply word count to a file\n\nNote that for reference, you can look up the details of the relevant methods in [Spark's Python API](https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.sql).","dateUpdated":"2016-07-25T22:22:54+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999702_-2057492861","id":"20160708-190419_1943542595","result":{"code":"SUCCESS","type":"HTML","msg":"<h1><strong>Word Count Lab: Building a word count application</strong></h1>\n<p>This lab will demonstrate how you can use Spark to develop a simple word count application.  The volume of unstructured text in existence is growing dramatically, and Spark is an excellent tool for analyzing this type of data.  In this lab, we will write code that calculates the most common words in the <a href=\"http://www.gutenberg.org/ebooks/100\">Complete Works of William Shakespeare</a> retrieved from <a href=\"http://www.gutenberg.org/wiki/Main_Page\">Project Gutenberg</a>.  This could also be scaled to larger applications, such as finding the most common words in Wikipedia.</p>\n<p><em></em> During this lab we will cover: <em></em></p>\n<ul>\n<li><em>Part 1:</em> Creating a base DataFrame and performing operations</li>\n<li><em>Part 2:</em> Counting with Spark SQL and DataFrames</li>\n<li><em>Part 3:</em> Finding unique words and a mean value</li>\n<li><em>Part 4:</em> Apply word count to a file</li>\n</ul>\n<p>Note that for reference, you can look up the details of the relevant methods in <a href=\"https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.sql\">Spark's Python API</a>.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:54+0000","dateFinished":"2016-07-25T22:22:54+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:257"},{"text":"%sh\n\nwget -O shakespeare.txt.gz https://www.dropbox.com/s/favra243lj9ketx/shakespeare.txt.gz?dl=0","dateUpdated":"2016-07-25T22:26:41+0000","config":{"colWidth":12,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true,"editorMode":"ace/mode/scala"},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469485270310_1385238653","id":"20160725-222110_1915133058","result":{"code":"SUCCESS","type":"TEXT","msg":""},"dateCreated":"2016-07-25T22:21:10+0000","dateStarted":"2016-07-25T22:26:41+0000","dateFinished":"2016-07-25T22:26:44+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:258"},{"text":"%sh\n\nrm -f shakespeare.txt\ngunzip shakespeare.txt.gz","dateUpdated":"2016-07-25T22:26:56+0000","config":{"colWidth":12,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true,"editorMode":"ace/mode/sh"},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469485279760_-860925426","id":"20160725-222119_1946431062","result":{"code":"SUCCESS","type":"TEXT","msg":""},"dateCreated":"2016-07-25T22:21:19+0000","dateStarted":"2016-07-25T22:26:56+0000","dateFinished":"2016-07-25T22:26:56+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:259"},{"text":"%sh\n\nhdfs dfs -rm -f -skipTrash /tmp/shakespeare.txt\nhdfs dfs -put shakespeare.txt /tmp\nhdfs dfs -ls /tmp/shakespeare.txt\n","dateUpdated":"2016-07-25T22:27:01+0000","config":{"colWidth":12,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true,"editorMode":"ace/mode/sh"},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469485317776_-462078734","id":"20160725-222157_313841181","result":{"code":"SUCCESS","type":"TEXT","msg":"Deleted /tmp/shakespeare.txt\n-rw-r--r--   3 zeppelin hdfs    5589917 2016-07-25 22:27 /tmp/shakespeare.txt\n"},"dateCreated":"2016-07-25T22:21:57+0000","dateStarted":"2016-07-25T22:27:01+0000","dateFinished":"2016-07-25T22:27:06+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:260"},{"text":"%md\n\n## (1) Create a Sample DataFrame\n\nWe'll start by generating a base DataFrame by using a Python list of tuples and the `sqlContext.createDataFrame` method.  Then we'll print out the type and schema of the DataFrame.  The Python API has several examples for using the [`createDataFrame` method](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SQLContext.createDataFrame).","dateUpdated":"2016-07-25T22:22:54+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999702_-2057492861","id":"20160708-190629_34207568","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>(1) Create a Sample DataFrame</h2>\n<p>We'll start by generating a base DataFrame by using a Python list of tuples and the <code>sqlContext.createDataFrame</code> method.  Then we'll print out the type and schema of the DataFrame.  The Python API has several examples for using the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SQLContext.createDataFrame\"><code>createDataFrame</code> method</a>.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:54+0000","dateFinished":"2016-07-25T22:22:54+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:261"},{"text":"%pyspark\n\nsqlContext.sql('SET spark.sql.shuffle.partitions=20')","dateUpdated":"2016-07-25T22:27:11+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160718-181402_302611604","result":{"code":"SUCCESS","type":"TEXT","msg":""},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:11+0000","dateFinished":"2016-07-25T22:27:11+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:262"},{"text":"%pyspark\n\nwordsDF = sqlContext.createDataFrame([('cat',), ('elephant',), ('rat',), ('rat',), ('cat', )], ['word'])\n\nprint type(wordsDF)\nwordsDF.show()\n\nwordsDF.printSchema()","dateUpdated":"2016-07-25T22:27:14+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-174552_829279198","result":{"code":"SUCCESS","type":"TEXT","msg":"<class 'pyspark.sql.dataframe.DataFrame'>\n+--------+\n|    word|\n+--------+\n|     cat|\n|elephant|\n|     rat|\n|     rat|\n|     cat|\n+--------+\n\nroot\n |-- word: string (nullable = true)\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:14+0000","dateFinished":"2016-07-25T22:27:14+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:263"},{"text":"%md\n\nRun transformations against the DataFrame, such as appending 's' to each word.","dateUpdated":"2016-07-25T22:22:54+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-193213_1049964143","result":{"code":"SUCCESS","type":"HTML","msg":"<p>Run transformations against the DataFrame, such as appending 's' to each word.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:54+0000","dateFinished":"2016-07-25T22:22:54+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:264"},{"text":"%pyspark\n\nfrom pyspark.sql.functions import lit, concat\n\npluralDF = wordsDF.select(concat(wordsDF.word, lit('s')).alias('word'))\npluralDF.show()","dateUpdated":"2016-07-25T22:27:17+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-174624_2050968455","result":{"code":"SUCCESS","type":"TEXT","msg":"+---------+\n|     word|\n+---------+\n|     cats|\n|elephants|\n|     rats|\n|     rats|\n|     cats|\n+---------+\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:17+0000","dateFinished":"2016-07-25T22:27:17+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:265"},{"text":"%md\n\nCalculate length of each item in DataFrame.","dateUpdated":"2016-07-25T22:22:54+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-191410_808151012","result":{"code":"SUCCESS","type":"HTML","msg":"<p>Calculate length of each item in DataFrame.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:55+0000","dateFinished":"2016-07-25T22:22:55+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:266"},{"text":"%pyspark\n\nfrom pyspark.sql.functions import length\n\npluralLengthsDF = pluralDF.select(length(pluralDF.word).alias('length'))\npluralLengthsDF.show()\n","dateUpdated":"2016-07-25T22:27:19+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-174747_1481588082","result":{"code":"SUCCESS","type":"TEXT","msg":"+------+\n|length|\n+------+\n|     4|\n|     9|\n|     4|\n|     4|\n|     4|\n+------+\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:19+0000","dateFinished":"2016-07-25T22:27:19+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:267"},{"text":"%md\n\n## Next Steps...\n\nNow, let's count the number of times a particular word appears in the 'word' column. There are multiple ways to perform the counting, but some are much less efficient than others.\n\nA naive approach would be to call `collect` on all of the elements and count them in the driver program. While this approach could work for small datasets, we want an approach that will work for any size dataset including terabyte- or petabyte-sized datasets. In addition, performing all of the work in the driver program is slower than performing it in parallel in the workers. For these reasons, we will use data parallel operations.\n\n## (2) Using `groupBy` and `count` \n\nUsing DataFrames, we can perform aggregations by grouping the data using the [`groupBy` function](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.groupBy) on the DataFrame.  Using `groupBy` returns a [`GroupedData` object](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData) and we can use the functions available for `GroupedData` to aggregate the groups.  For example, we can call `avg` or `count` on a `GroupedData` object to obtain the average of the values in the groups or the number of occurrences in the groups, respectively.\n\nTo find the counts of words, group by the words and then use the [`count` function](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.count) to find the number of times that words occur.\n","dateUpdated":"2016-07-25T22:22:54+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-191703_1847747152","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>Next Steps&hellip;</h2>\n<p>Now, let's count the number of times a particular word appears in the 'word' column. There are multiple ways to perform the counting, but some are much less efficient than others.</p>\n<p>A naive approach would be to call <code>collect</code> on all of the elements and count them in the driver program. While this approach could work for small datasets, we want an approach that will work for any size dataset including terabyte- or petabyte-sized datasets. In addition, performing all of the work in the driver program is slower than performing it in parallel in the workers. For these reasons, we will use data parallel operations.</p>\n<h2>(2) Using <code>groupBy</code> and <code>count</code></h2>\n<p>Using DataFrames, we can perform aggregations by grouping the data using the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.groupBy\"><code>groupBy</code> function</a> on the DataFrame.  Using <code>groupBy</code> returns a <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData\"><code>GroupedData</code> object</a> and we can use the functions available for <code>GroupedData</code> to aggregate the groups.  For example, we can call <code>avg</code> or <code>count</code> on a <code>GroupedData</code> object to obtain the average of the values in the groups or the number of occurrences in the groups, respectively.</p>\n<p>To find the counts of words, group by the words and then use the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.count\"><code>count</code> function</a> to find the number of times that words occur.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:55+0000","dateFinished":"2016-07-25T22:22:55+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:268"},{"text":"%pyspark\n\nwordCountsDF = (wordsDF.groupBy('word').count())\nwordCountsDF.show()\n","dateUpdated":"2016-07-25T22:27:23+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-174825_44097386","result":{"code":"SUCCESS","type":"TEXT","msg":"+--------+-----+\n|    word|count|\n+--------+-----+\n|     cat|    2|\n|elephant|    1|\n|     rat|    2|\n+--------+-----+\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:23+0000","dateFinished":"2016-07-25T22:27:23+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:269"},{"text":"%md\n\nAlternately, we can use `distinct` method to count the number of unique words","dateUpdated":"2016-07-25T22:22:54+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160711-185614_181826258","result":{"code":"SUCCESS","type":"HTML","msg":"<p>Alternately, we can use <code>distinct</code> method to count the number of unique words</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:55+0000","dateFinished":"2016-07-25T22:22:55+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:270"},{"text":"%pyspark\n\nuniqueWordsCount = wordsDF.distinct().count()\nprint uniqueWordsCount","dateUpdated":"2016-07-25T22:27:26+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-174849_614575297","result":{"code":"SUCCESS","type":"TEXT","msg":"3\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:26+0000","dateFinished":"2016-07-25T22:27:26+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:271"},{"text":"%md\n\n## (3) Running aggregate functions on groups using DataFrames \n\nFind the mean number of occurrences of words in `wordCountsDF`.\n\nYou should use the [`mean` GroupedData method](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.mean) to accomplish this.  Note that when you use `groupBy` you don't need to pass in any columns.  A call without columns just prepares the DataFrame so that aggregation functions like `mean` can be applied.","dateUpdated":"2016-07-25T22:22:55+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999703_-2057877610","id":"20160708-192111_1674871410","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>(3) Running aggregate functions on groups using DataFrames</h2>\n<p>Find the mean number of occurrences of words in <code>wordCountsDF</code>.</p>\n<p>You should use the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.mean\"><code>mean</code> GroupedData method</a> to accomplish this.  Note that when you use <code>groupBy</code> you don't need to pass in any columns.  A call without columns just prepares the DataFrame so that aggregation functions like <code>mean</code> can be applied.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:55+0000","dateFinished":"2016-07-25T22:22:55+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:272"},{"text":"%pyspark\n\naverageCount = (wordCountsDF.groupBy().mean('count').collect()[0][0])\n\nprint type(averageCount)\nprint averageCount","dateUpdated":"2016-07-25T22:27:28+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-174930_1749829238","result":{"code":"SUCCESS","type":"TEXT","msg":"<type 'float'>\n1.66666666667\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:28+0000","dateFinished":"2016-07-25T22:27:28+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:273"},{"text":"%md\n\nIn this section we will finish developing our word count application.  We'll have to build the `wordCount` function, deal with real world problems like capitalization and punctuation, load in our data source, and compute the word count on the new data.\n\n## (4) The `wordCount` function \n\nFirst, define a function for word counting.  You should reuse the techniques that have been covered in earlier parts of this lab.  This function should take in a DataFrame that is a list of words like `wordsDF` and return a DataFrame that has all of the words and their associated counts.","dateUpdated":"2016-07-25T22:22:55+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-192220_1583502992","result":{"code":"SUCCESS","type":"HTML","msg":"<p>In this section we will finish developing our word count application.  We'll have to build the <code>wordCount</code> function, deal with real world problems like capitalization and punctuation, load in our data source, and compute the word count on the new data.</p>\n<h2>(4) The <code>wordCount</code> function</h2>\n<p>First, define a function for word counting.  You should reuse the techniques that have been covered in earlier parts of this lab.  This function should take in a DataFrame that is a list of words like <code>wordsDF</code> and return a DataFrame that has all of the words and their associated counts.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:55+0000","dateFinished":"2016-07-25T22:22:55+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:274"},{"text":"%pyspark\n\ndef wordCount(wordListDF):\n    \"\"\"Creates a DataFrame with word counts.\n\n    Args:\n        wordListDF (DataFrame of str): A DataFrame consisting of one string column called 'word'.\n\n    Returns:\n        DataFrame of (str, int): A DataFrame containing 'word' and 'count' columns.\n    \"\"\"\n    return wordListDF.groupBy('word').count()\n\nwordCount(wordsDF).show()\n","dateUpdated":"2016-07-25T22:27:31+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-175000_1348528453","result":{"code":"SUCCESS","type":"TEXT","msg":"+--------+-----+\n|    word|count|\n+--------+-----+\n|     cat|    2|\n|elephant|    1|\n|     rat|    2|\n+--------+-----+\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:31+0000","dateFinished":"2016-07-25T22:27:31+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:275"},{"text":"%md\n\n## (5) Dealing with real-world issues, like capitalization and punctuation \n\nReal world files are more complicated than the data we have been using in this lab. Some of the issues we have to address are:\n  + Words should be counted independent of their capitialization (e.g., Spark and spark should be counted as the same word).\n  + All punctuation should be removed.\n  + Any leading or trailing spaces on a line should be removed.\n\nDefine the function `removePunctuation` that converts all text to lower case, removes any punctuation, and removes leading and trailing spaces.  Use the Python [regexp_replace](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions.regexp_replace) module to remove any text that is not a letter, number, or space. If you are unfamiliar with regular expressions, you may want to review [this tutorial](https://developers.google.com/edu/python/regular-expressions) from Google.  Also, [this website](https://regex101.com/#python) is  a great resource for debugging your regular expression.\n\nYou should also use the `trim` and `lower` functions found in [pyspark.sql.functions](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions).","dateUpdated":"2016-07-25T22:22:55+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-192448_64374358","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>(5) Dealing with real-world issues, like capitalization and punctuation</h2>\n<p>Real world files are more complicated than the data we have been using in this lab. Some of the issues we have to address are:</p>\n<ul>\n<li>Words should be counted independent of their capitialization (e.g., Spark and spark should be counted as the same word).</li>\n<li>All punctuation should be removed.</li>\n<li>Any leading or trailing spaces on a line should be removed.</li>\n</ul>\n<p>Define the function <code>removePunctuation</code> that converts all text to lower case, removes any punctuation, and removes leading and trailing spaces.  Use the Python <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions.regexp_replace\">regexp_replace</a> module to remove any text that is not a letter, number, or space. If you are unfamiliar with regular expressions, you may want to review <a href=\"https://developers.google.com/edu/python/regular-expressions\">this tutorial</a> from Google.  Also, <a href=\"https://regex101.com/#python\">this website</a> is  a great resource for debugging your regular expression.</p>\n<p>You should also use the <code>trim</code> and <code>lower</code> functions found in <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions\">pyspark.sql.functions</a>.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:55+0000","dateFinished":"2016-07-25T22:22:55+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:276"},{"text":"%pyspark\n\nfrom pyspark.sql.functions import regexp_replace, trim, col, lower\ndef removePunctuation(column):\n    \"\"\"Removes punctuation, changes to lower case, and strips leading and trailing spaces.\n\n    Note:\n        Only spaces, letters, and numbers should be retained.  Other characters should should be\n        eliminated (e.g. it's becomes its).  Leading and trailing spaces should be removed after\n        punctuation is removed.\n\n    Args:\n        column (Column): A Column containing a sentence.\n\n    Returns:\n        Column: A Column named 'sentence' with clean-up operations applied.\n    \"\"\"\n    column = regexp_replace(column, '[^A-Za-z0-9 ]+', '')\n    return lower(trim(column)).alias('sentence')\n","dateUpdated":"2016-07-25T22:27:35+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-174957_372391009","result":{"code":"SUCCESS","type":"TEXT","msg":""},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:35+0000","dateFinished":"2016-07-25T22:27:35+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:277"},{"text":"%pyspark\n\nsentenceDF = sqlContext.createDataFrame([('Hi, you!',),\n                                         (' No under_score!',),\n                                         (' *      Remove punctuation then spaces  * ',)], ['sentence'])\nsentenceDF.show(truncate=False)\n(sentenceDF\n .select(removePunctuation(col('sentence')))\n .show(truncate=False))\n","dateUpdated":"2016-07-25T22:27:38+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-175053_1067207578","result":{"code":"SUCCESS","type":"TEXT","msg":"+------------------------------------------+\n|sentence                                  |\n+------------------------------------------+\n|Hi, you!                                  |\n| No under_score!                          |\n| *      Remove punctuation then spaces  * |\n+------------------------------------------+\n\n+------------------------------+\n|sentence                      |\n+------------------------------+\n|hi you                        |\n|no underscore                 |\n|remove punctuation then spaces|\n+------------------------------+\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:38+0000","dateFinished":"2016-07-25T22:27:38+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:278"},{"text":"%md\n\n## (6)  Load a large text file (Shakespeare's Complete Works)\n\nFor the next part of this lab, we will use the [Complete Works of William Shakespeare](http://www.gutenberg.org/ebooks/100) from [Project Gutenberg](http://www.gutenberg.org/wiki/Main_Page). To convert a text file into a DataFrame, we use the `sqlContext.read.text()` method. We also apply the recently defined `removePunctuation()` function using a `select()` transformation to strip out the punctuation and change all text to lower case.  Since the file is large we use `show(15)`, so that we only print 15 lines.","dateUpdated":"2016-07-25T22:22:55+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-192534_1536200797","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>(6)  Load a large text file (Shakespeare's Complete Works)</h2>\n<p>For the next part of this lab, we will use the <a href=\"http://www.gutenberg.org/ebooks/100\">Complete Works of William Shakespeare</a> from <a href=\"http://www.gutenberg.org/wiki/Main_Page\">Project Gutenberg</a>. To convert a text file into a DataFrame, we use the <code>sqlContext.read.text()</code> method. We also apply the recently defined <code>removePunctuation()</code> function using a <code>select()</code> transformation to strip out the punctuation and change all text to lower case.  Since the file is large we use <code>show(15)</code>, so that we only print 15 lines.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:56+0000","dateFinished":"2016-07-25T22:22:56+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:279"},{"text":"%pyspark\n\nfileName = \"hdfs:///tmp/shakespeare.txt\"\n\nshakespeareDF = sqlContext.read.text(fileName).select(removePunctuation(col('value')))\nshakespeareDF.show(15, truncate=False)\nprint shakespeareDF.columns\n","dateUpdated":"2016-07-25T22:27:41+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-175114_1685183906","result":{"code":"SUCCESS","type":"TEXT","msg":"+---------------------------------------------------------------------------+\n|sentence                                                                   |\n+---------------------------------------------------------------------------+\n|the project gutenberg ebook of the complete works of william shakespeare by|\n|william shakespeare                                                        |\n|                                                                           |\n|this ebook is for the use of anyone anywhere at no cost and with           |\n|almost no restrictions whatsoever  you may copy it give it away or         |\n|reuse it under the terms of the project gutenberg license included         |\n|with this ebook or online at wwwgutenbergorg                               |\n|                                                                           |\n|this is a copyrighted project gutenberg ebook details below                |\n|please follow the copyright guidelines in this file                        |\n|                                                                           |\n|title the complete works of william shakespeare                            |\n|                                                                           |\n|author william shakespeare                                                 |\n|                                                                           |\n+---------------------------------------------------------------------------+\nonly showing top 15 rows\n\n['sentence']\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:41+0000","dateFinished":"2016-07-25T22:27:42+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:280"},{"text":"%md\n\n## (7) Splitting Lines into Words \n\nBefore we can use the `wordcount()` function, we have to address two issues with the format of the DataFrame:\n  + The first issue is that  that we need to split each line by its spaces.\n  + The second issue is we need to filter out empty lines or words.\n\nApply a transformation that will split each 'sentence' in the DataFrame by its spaces, and then transform from a DataFrame that contains lists of words into a DataFrame with each word in its own row.  To accomplish these two tasks you can use the `split` and `explode` functions found in [pyspark.sql.functions](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions).\n\nOnce you have a DataFrame with one word per row you can apply the [DataFrame operation `where`](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.where) to remove the rows that contain ''.\n","dateUpdated":"2016-07-25T22:22:56+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-192649_614750751","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>(7) Splitting Lines into Words</h2>\n<p>Before we can use the <code>wordcount()</code> function, we have to address two issues with the format of the DataFrame:</p>\n<ul>\n<li>The first issue is that  that we need to split each line by its spaces.</li>\n<li>The second issue is we need to filter out empty lines or words.</li>\n</ul>\n<p>Apply a transformation that will split each 'sentence' in the DataFrame by its spaces, and then transform from a DataFrame that contains lists of words into a DataFrame with each word in its own row.  To accomplish these two tasks you can use the <code>split</code> and <code>explode</code> functions found in <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions\">pyspark.sql.functions</a>.</p>\n<p>Once you have a DataFrame with one word per row you can apply the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.where\">DataFrame operation <code>where</code></a> to remove the rows that contain ''.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:56+0000","dateFinished":"2016-07-25T22:22:56+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:281"},{"text":"%pyspark\n\nfrom pyspark.sql.functions import split, explode, length\n\nwordsDF = shakespeareDF.select(explode(split('sentence', ' ')).alias('word'))\nshakeWordsDF = wordsDF.filter(length('word') > 0)\n\nshakeWordsDF.show()\nshakeWordsDFCount = shakeWordsDF.count()\nprint shakeWordsDFCount\n","dateUpdated":"2016-07-25T22:27:48+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-175222_1697982578","result":{"code":"SUCCESS","type":"TEXT","msg":"+-----------+\n|       word|\n+-----------+\n|        the|\n|    project|\n|  gutenberg|\n|      ebook|\n|         of|\n|        the|\n|   complete|\n|      works|\n|         of|\n|    william|\n|shakespeare|\n|         by|\n|    william|\n|shakespeare|\n|       this|\n|      ebook|\n|         is|\n|        for|\n|        the|\n|        use|\n+-----------+\nonly showing top 20 rows\n\n903709\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:48+0000","dateFinished":"2016-07-25T22:27:49+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:282"},{"text":"%md\n\n## (8) Finally, Count the words and Sort them\n\nWe now have a DataFrame that is only words.  Next, let's apply the `wordCount()` function to produce a list of word counts. We can view the first 20 words by using the `show()` action; however, we'd like to see the words in descending order of count, so we'll need to apply the [`orderBy` DataFrame method](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.orderBy) to first sort the DataFrame that is returned from `wordCount()`.\n\nYou'll notice that many of the words are common English words. These are called stopwords. In a later lab, we will see how to eliminate them from the results.","dateUpdated":"2016-07-25T22:22:56+0000","config":{"colWidth":12,"editorMode":"ace/mode/markdown","editorHide":true,"graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999704_-2059801354","id":"20160708-192734_332811400","result":{"code":"SUCCESS","type":"HTML","msg":"<h2>(8) Finally, Count the words and Sort them</h2>\n<p>We now have a DataFrame that is only words.  Next, let's apply the <code>wordCount()</code> function to produce a list of word counts. We can view the first 20 words by using the <code>show()</code> action; however, we'd like to see the words in descending order of count, so we'll need to apply the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.orderBy\"><code>orderBy</code> DataFrame method</a> to first sort the DataFrame that is returned from <code>wordCount()</code>.</p>\n<p>You'll notice that many of the words are common English words. These are called stopwords. In a later lab, we will see how to eliminate them from the results.</p>\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:22:56+0000","dateFinished":"2016-07-25T22:22:56+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:283"},{"text":"%pyspark\n\nfrom pyspark.sql.functions import desc\n\nshakeWordCountDF = wordCount(shakeWordsDF)\n\ntopWordsAndCountsDF = shakeWordCountDF.orderBy(desc('count'))\ntopWordsAndCountsDF.show()\n","dateUpdated":"2016-07-25T22:27:52+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999705_-2060186103","id":"20160708-175246_643361093","result":{"code":"SUCCESS","type":"TEXT","msg":"+----+-----+\n|word|count|\n+----+-----+\n| the|27825|\n| and|26791|\n|   i|20681|\n|  to|19261|\n|  of|18289|\n|   a|14667|\n| you|13716|\n|  my|12481|\n|that|11135|\n|  in|11027|\n|  is| 9621|\n| not| 8745|\n| for| 8261|\n|with| 8046|\n|  me| 7769|\n|  it| 7703|\n|  be| 7106|\n|this| 6894|\n|your| 6889|\n| his| 6857|\n+----+-----+\nonly showing top 20 rows\n\n"},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:27:52+0000","dateFinished":"2016-07-25T22:27:53+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:284"},{"dateUpdated":"2016-07-25T22:22:56+0000","config":{"colWidth":12,"editorMode":"ace/mode/scala","graph":{"mode":"table","height":300,"optionOpen":false,"keys":[],"values":[],"groups":[],"scatter":{}},"enabled":true},"settings":{"params":{},"forms":{}},"jobName":"paragraph_1469484999705_-2060186103","id":"20160708-181052_829685605","result":{"code":"SUCCESS","type":"TEXT","msg":""},"dateCreated":"2016-07-25T22:16:39+0000","dateStarted":"2016-07-25T22:23:43+0000","dateFinished":"2016-07-25T22:23:43+0000","status":"FINISHED","progressUpdateIntervalMs":500,"$$hashKey":"object:285"}],"name":"Workshop: Spark SQL - WordCount Example","id":"2BQTWW6M3","angularObjects":{"2BSFJV1FS:shared_process":[],"2BSNQG8WS:shared_process":[],"2BRVS8QXA:shared_process":[],"2BUCJ8TAF:shared_process":[],"2BRX3D844:shared_process":[],"2BRUK6QXU:shared_process":[],"2BQVX4SHW:shared_process":[],"2BSZZ45FS:shared_process":[],"2BU9WERHP:shared_process":[],"2BT3T98DM:shared_process":[],"2BQJ87G42:shared_process":[],"2BQPPP9W6:shared_process":[],"2BTY71GDZ:shared_process":[],"2BSP2JD87:shared_process":[],"2BRDX41NG:shared_process":[],"2BRJ1U1PV:shared_process":[],"2BTVC6QV1:shared_process":[]},"config":{"looknfeel":"default"},"info":{}}
+{
+	"paragraphs": [
+		{
+			"text": "%md\n\n# **Word Count Lab: Building a word count application**\n\nThis lab will demonstrate how you can use Spark to develop a simple word count application.  The volume of unstructured text in existence is growing dramatically, and Spark is an excellent tool for analyzing this type of data.  In this lab, we will write code that calculates the most common words in the [Complete Works of William Shakespeare](http://www.gutenberg.org/ebooks/100) retrieved from [Project Gutenberg](http://www.gutenberg.org/wiki/Main_Page).  This could also be scaled to larger applications, such as finding the most common words in Wikipedia.\n\n** During this lab we will cover: **\n* *Part 1:* Creating a base DataFrame and performing operations\n* *Part 2:* Counting with Spark SQL and DataFrames\n* *Part 3:* Finding unique words and a mean value\n* *Part 4:* Apply word count to a file\n\nNote that for reference, you can look up the details of the relevant methods in [Spark's Python API](https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.sql).",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999702_-2057492861",
+			"id": "20160708-190419_1943542595",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h1><strong>Word Count Lab: Building a word count application</strong></h1>\n<p>This lab will demonstrate how you can use Spark to develop a simple word count application.  The volume of unstructured text in existence is growing dramatically, and Spark is an excellent tool for analyzing this type of data.  In this lab, we will write code that calculates the most common words in the <a href=\"http://www.gutenberg.org/ebooks/100\">Complete Works of William Shakespeare</a> retrieved from <a href=\"http://www.gutenberg.org/wiki/Main_Page\">Project Gutenberg</a>.  This could also be scaled to larger applications, such as finding the most common words in Wikipedia.</p>\n<p><em></em> During this lab we will cover: <em></em></p>\n<ul>\n<li><em>Part 1:</em> Creating a base DataFrame and performing operations</li>\n<li><em>Part 2:</em> Counting with Spark SQL and DataFrames</li>\n<li><em>Part 3:</em> Finding unique words and a mean value</li>\n<li><em>Part 4:</em> Apply word count to a file</li>\n</ul>\n<p>Note that for reference, you can look up the details of the relevant methods in <a href=\"https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.sql\">Spark's Python API</a>.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:257"
+		},
+		{
+			"text": "%sh\n\nwget -O shakespeare.txt.gz https://www.dropbox.com/s/favra243lj9ketx/shakespeare.txt.gz?dl=0",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true,
+				"editorMode": "ace/mode/scala"
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469485270310_1385238653",
+			"id": "20160725-222110_1915133058",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": ""
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:258"
+		},
+		{
+			"text": "%sh\n\nrm -f shakespeare.txt\ngunzip shakespeare.txt.gz",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true,
+				"editorMode": "ace/mode/sh"
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469485279760_-860925426",
+			"id": "20160725-222119_1946431062",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": ""
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:259"
+		},
+		{
+			"text": "%sh\n\nhdfs dfs -rm -f -skipTrash /tmp/shakespeare.txt\nhdfs dfs -put shakespeare.txt /tmp\nhdfs dfs -ls /tmp/shakespeare.txt\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true,
+				"editorMode": "ace/mode/sh"
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469485317776_-462078734",
+			"id": "20160725-222157_313841181",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "Deleted /tmp/shakespeare.txt\n-rw-r--r--   3 zeppelin hdfs    5589917 2016-07-25 22:27 /tmp/shakespeare.txt\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:260"
+		},
+		{
+			"text": "%md\n\n## (1) Create a Sample DataFrame\n\nWe'll start by generating a base DataFrame by using a Python list of tuples and the `sqlContext.createDataFrame` method.  Then we'll print out the type and schema of the DataFrame.  The Python API has several examples for using the [`createDataFrame` method](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SQLContext.createDataFrame).",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999702_-2057492861",
+			"id": "20160708-190629_34207568",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>(1) Create a Sample DataFrame</h2>\n<p>We'll start by generating a base DataFrame by using a Python list of tuples and the <code>sqlContext.createDataFrame</code> method.  Then we'll print out the type and schema of the DataFrame.  The Python API has several examples for using the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SQLContext.createDataFrame\"><code>createDataFrame</code> method</a>.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:261"
+		},
+		{
+			"text": "%pyspark\n\nsqlContext.sql('SET spark.sql.shuffle.partitions=20')",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160718-181402_302611604",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": ""
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:262"
+		},
+		{
+			"text": "%pyspark\n\nwordsDF = sqlContext.createDataFrame([('cat',), ('elephant',), ('rat',), ('rat',), ('cat', )], ['word'])\n\nprint type(wordsDF)\nwordsDF.show()\n\nwordsDF.printSchema()",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-174552_829279198",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "<class 'pyspark.sql.dataframe.DataFrame'>\n+--------+\n|    word|\n+--------+\n|     cat|\n|elephant|\n|     rat|\n|     rat|\n|     cat|\n+--------+\n\nroot\n |-- word: string (nullable = true)\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:263"
+		},
+		{
+			"text": "%md\n\nRun transformations against the DataFrame, such as appending 's' to each word.",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-193213_1049964143",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<p>Run transformations against the DataFrame, such as appending 's' to each word.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:264"
+		},
+		{
+			"text": "%pyspark\n\nfrom pyspark.sql.functions import lit, concat\n\npluralDF = wordsDF.select(concat(wordsDF.word, lit('s')).alias('word'))\npluralDF.show()",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-174624_2050968455",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+---------+\n|     word|\n+---------+\n|     cats|\n|elephants|\n|     rats|\n|     rats|\n|     cats|\n+---------+\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:265"
+		},
+		{
+			"text": "%md\n\nCalculate length of each item in DataFrame.",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-191410_808151012",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<p>Calculate length of each item in DataFrame.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:266"
+		},
+		{
+			"text": "%pyspark\n\nfrom pyspark.sql.functions import length\n\npluralLengthsDF = pluralDF.select(length(pluralDF.word).alias('length'))\npluralLengthsDF.show()\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-174747_1481588082",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+------+\n|length|\n+------+\n|     4|\n|     9|\n|     4|\n|     4|\n|     4|\n+------+\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:267"
+		},
+		{
+			"text": "%md\n\n## Next Steps...\n\nNow, let's count the number of times a particular word appears in the 'word' column. There are multiple ways to perform the counting, but some are much less efficient than others.\n\nA naive approach would be to call `collect` on all of the elements and count them in the driver program. While this approach could work for small datasets, we want an approach that will work for any size dataset including terabyte- or petabyte-sized datasets. In addition, performing all of the work in the driver program is slower than performing it in parallel in the workers. For these reasons, we will use data parallel operations.\n\n## (2) Using `groupBy` and `count` \n\nUsing DataFrames, we can perform aggregations by grouping the data using the [`groupBy` function](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.groupBy) on the DataFrame.  Using `groupBy` returns a [`GroupedData` object](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData) and we can use the functions available for `GroupedData` to aggregate the groups.  For example, we can call `avg` or `count` on a `GroupedData` object to obtain the average of the values in the groups or the number of occurrences in the groups, respectively.\n\nTo find the counts of words, group by the words and then use the [`count` function](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.count) to find the number of times that words occur.\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-191703_1847747152",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>Next Steps&hellip;</h2>\n<p>Now, let's count the number of times a particular word appears in the 'word' column. There are multiple ways to perform the counting, but some are much less efficient than others.</p>\n<p>A naive approach would be to call <code>collect</code> on all of the elements and count them in the driver program. While this approach could work for small datasets, we want an approach that will work for any size dataset including terabyte- or petabyte-sized datasets. In addition, performing all of the work in the driver program is slower than performing it in parallel in the workers. For these reasons, we will use data parallel operations.</p>\n<h2>(2) Using <code>groupBy</code> and <code>count</code></h2>\n<p>Using DataFrames, we can perform aggregations by grouping the data using the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.groupBy\"><code>groupBy</code> function</a> on the DataFrame.  Using <code>groupBy</code> returns a <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData\"><code>GroupedData</code> object</a> and we can use the functions available for <code>GroupedData</code> to aggregate the groups.  For example, we can call <code>avg</code> or <code>count</code> on a <code>GroupedData</code> object to obtain the average of the values in the groups or the number of occurrences in the groups, respectively.</p>\n<p>To find the counts of words, group by the words and then use the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.count\"><code>count</code> function</a> to find the number of times that words occur.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:268"
+		},
+		{
+			"text": "%pyspark\n\nwordCountsDF = (wordsDF.groupBy('word').count())\nwordCountsDF.show()\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-174825_44097386",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+--------+-----+\n|    word|count|\n+--------+-----+\n|     cat|    2|\n|elephant|    1|\n|     rat|    2|\n+--------+-----+\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:269"
+		},
+		{
+			"text": "%md\n\nAlternately, we can use `distinct` method to count the number of unique words",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160711-185614_181826258",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<p>Alternately, we can use <code>distinct</code> method to count the number of unique words</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:270"
+		},
+		{
+			"text": "%pyspark\n\nuniqueWordsCount = wordsDF.distinct().count()\nprint uniqueWordsCount",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-174849_614575297",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "3\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:271"
+		},
+		{
+			"text": "%md\n\n## (3) Running aggregate functions on groups using DataFrames \n\nFind the mean number of occurrences of words in `wordCountsDF`.\n\nYou should use the [`mean` GroupedData method](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.mean) to accomplish this.  Note that when you use `groupBy` you don't need to pass in any columns.  A call without columns just prepares the DataFrame so that aggregation functions like `mean` can be applied.",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999703_-2057877610",
+			"id": "20160708-192111_1674871410",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>(3) Running aggregate functions on groups using DataFrames</h2>\n<p>Find the mean number of occurrences of words in <code>wordCountsDF</code>.</p>\n<p>You should use the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.GroupedData.mean\"><code>mean</code> GroupedData method</a> to accomplish this.  Note that when you use <code>groupBy</code> you don't need to pass in any columns.  A call without columns just prepares the DataFrame so that aggregation functions like <code>mean</code> can be applied.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:272"
+		},
+		{
+			"text": "%pyspark\n\naverageCount = (wordCountsDF.groupBy().mean('count').collect()[0][0])\n\nprint type(averageCount)\nprint averageCount",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-174930_1749829238",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "<type 'float'>\n1.66666666667\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:273"
+		},
+		{
+			"text": "%md\n\nIn this section we will finish developing our word count application.  We'll have to build the `wordCount` function, deal with real world problems like capitalization and punctuation, load in our data source, and compute the word count on the new data.\n\n## (4) The `wordCount` function \n\nFirst, define a function for word counting.  You should reuse the techniques that have been covered in earlier parts of this lab.  This function should take in a DataFrame that is a list of words like `wordsDF` and return a DataFrame that has all of the words and their associated counts.",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-192220_1583502992",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<p>In this section we will finish developing our word count application.  We'll have to build the <code>wordCount</code> function, deal with real world problems like capitalization and punctuation, load in our data source, and compute the word count on the new data.</p>\n<h2>(4) The <code>wordCount</code> function</h2>\n<p>First, define a function for word counting.  You should reuse the techniques that have been covered in earlier parts of this lab.  This function should take in a DataFrame that is a list of words like <code>wordsDF</code> and return a DataFrame that has all of the words and their associated counts.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:274"
+		},
+		{
+			"text": "%pyspark\n\ndef wordCount(wordListDF):\n    \"\"\"Creates a DataFrame with word counts.\n\n    Args:\n        wordListDF (DataFrame of str): A DataFrame consisting of one string column called 'word'.\n\n    Returns:\n        DataFrame of (str, int): A DataFrame containing 'word' and 'count' columns.\n    \"\"\"\n    return wordListDF.groupBy('word').count()\n\nwordCount(wordsDF).show()\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-175000_1348528453",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+--------+-----+\n|    word|count|\n+--------+-----+\n|     cat|    2|\n|elephant|    1|\n|     rat|    2|\n+--------+-----+\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:275"
+		},
+		{
+			"text": "%md\n\n## (5) Dealing with real-world issues, like capitalization and punctuation \n\nReal world files are more complicated than the data we have been using in this lab. Some of the issues we have to address are:\n  + Words should be counted independent of their capitialization (e.g., Spark and spark should be counted as the same word).\n  + All punctuation should be removed.\n  + Any leading or trailing spaces on a line should be removed.\n\nDefine the function `removePunctuation` that converts all text to lower case, removes any punctuation, and removes leading and trailing spaces.  Use the Python [regexp_replace](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions.regexp_replace) module to remove any text that is not a letter, number, or space. If you are unfamiliar with regular expressions, you may want to review [this tutorial](https://developers.google.com/edu/python/regular-expressions) from Google.  Also, [this website](https://regex101.com/#python) is  a great resource for debugging your regular expression.\n\nYou should also use the `trim` and `lower` functions found in [pyspark.sql.functions](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions).",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-192448_64374358",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>(5) Dealing with real-world issues, like capitalization and punctuation</h2>\n<p>Real world files are more complicated than the data we have been using in this lab. Some of the issues we have to address are:</p>\n<ul>\n<li>Words should be counted independent of their capitialization (e.g., Spark and spark should be counted as the same word).</li>\n<li>All punctuation should be removed.</li>\n<li>Any leading or trailing spaces on a line should be removed.</li>\n</ul>\n<p>Define the function <code>removePunctuation</code> that converts all text to lower case, removes any punctuation, and removes leading and trailing spaces.  Use the Python <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions.regexp_replace\">regexp_replace</a> module to remove any text that is not a letter, number, or space. If you are unfamiliar with regular expressions, you may want to review <a href=\"https://developers.google.com/edu/python/regular-expressions\">this tutorial</a> from Google.  Also, <a href=\"https://regex101.com/#python\">this website</a> is  a great resource for debugging your regular expression.</p>\n<p>You should also use the <code>trim</code> and <code>lower</code> functions found in <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions\">pyspark.sql.functions</a>.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:276"
+		},
+		{
+			"text": "%pyspark\n\nfrom pyspark.sql.functions import regexp_replace, trim, col, lower\ndef removePunctuation(column):\n    \"\"\"Removes punctuation, changes to lower case, and strips leading and trailing spaces.\n\n    Note:\n        Only spaces, letters, and numbers should be retained.  Other characters should should be\n        eliminated (e.g. it's becomes its).  Leading and trailing spaces should be removed after\n        punctuation is removed.\n\n    Args:\n        column (Column): A Column containing a sentence.\n\n    Returns:\n        Column: A Column named 'sentence' with clean-up operations applied.\n    \"\"\"\n    column = regexp_replace(column, '[^A-Za-z0-9 ]+', '')\n    return lower(trim(column)).alias('sentence')\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-174957_372391009",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": ""
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:277"
+		},
+		{
+			"text": "%pyspark\n\nsentenceDF = sqlContext.createDataFrame([('Hi, you!',),\n                                         (' No under_score!',),\n                                         (' *      Remove punctuation then spaces  * ',)], ['sentence'])\nsentenceDF.show(truncate=False)\n(sentenceDF\n .select(removePunctuation(col('sentence')))\n .show(truncate=False))\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-175053_1067207578",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+------------------------------------------+\n|sentence                                  |\n+------------------------------------------+\n|Hi, you!                                  |\n| No under_score!                          |\n| *      Remove punctuation then spaces  * |\n+------------------------------------------+\n\n+------------------------------+\n|sentence                      |\n+------------------------------+\n|hi you                        |\n|no underscore                 |\n|remove punctuation then spaces|\n+------------------------------+\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:278"
+		},
+		{
+			"text": "%md\n\n## (6)  Load a large text file (Shakespeare's Complete Works)\n\nFor the next part of this lab, we will use the [Complete Works of William Shakespeare](http://www.gutenberg.org/ebooks/100) from [Project Gutenberg](http://www.gutenberg.org/wiki/Main_Page). To convert a text file into a DataFrame, we use the `sqlContext.read.text()` method. We also apply the recently defined `removePunctuation()` function using a `select()` transformation to strip out the punctuation and change all text to lower case.  Since the file is large we use `show(15)`, so that we only print 15 lines.",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-192534_1536200797",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>(6)  Load a large text file (Shakespeare's Complete Works)</h2>\n<p>For the next part of this lab, we will use the <a href=\"http://www.gutenberg.org/ebooks/100\">Complete Works of William Shakespeare</a> from <a href=\"http://www.gutenberg.org/wiki/Main_Page\">Project Gutenberg</a>. To convert a text file into a DataFrame, we use the <code>sqlContext.read.text()</code> method. We also apply the recently defined <code>removePunctuation()</code> function using a <code>select()</code> transformation to strip out the punctuation and change all text to lower case.  Since the file is large we use <code>show(15)</code>, so that we only print 15 lines.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:279"
+		},
+		{
+			"text": "%pyspark\n\nfileName = \"hdfs:///tmp/shakespeare.txt\"\n\nshakespeareDF = sqlContext.read.text(fileName).select(removePunctuation(col('value')))\nshakespeareDF.show(15, truncate=False)\nprint shakespeareDF.columns\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-175114_1685183906",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+---------------------------------------------------------------------------+\n|sentence                                                                   |\n+---------------------------------------------------------------------------+\n|the project gutenberg ebook of the complete works of william shakespeare by|\n|william shakespeare                                                        |\n|                                                                           |\n|this ebook is for the use of anyone anywhere at no cost and with           |\n|almost no restrictions whatsoever  you may copy it give it away or         |\n|reuse it under the terms of the project gutenberg license included         |\n|with this ebook or online at wwwgutenbergorg                               |\n|                                                                           |\n|this is a copyrighted project gutenberg ebook details below                |\n|please follow the copyright guidelines in this file                        |\n|                                                                           |\n|title the complete works of william shakespeare                            |\n|                                                                           |\n|author william shakespeare                                                 |\n|                                                                           |\n+---------------------------------------------------------------------------+\nonly showing top 15 rows\n\n['sentence']\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:280"
+		},
+		{
+			"text": "%md\n\n## (7) Splitting Lines into Words \n\nBefore we can use the `wordcount()` function, we have to address two issues with the format of the DataFrame:\n  + The first issue is that  that we need to split each line by its spaces.\n  + The second issue is we need to filter out empty lines or words.\n\nApply a transformation that will split each 'sentence' in the DataFrame by its spaces, and then transform from a DataFrame that contains lists of words into a DataFrame with each word in its own row.  To accomplish these two tasks you can use the `split` and `explode` functions found in [pyspark.sql.functions](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions).\n\nOnce you have a DataFrame with one word per row you can apply the [DataFrame operation `where`](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.where) to remove the rows that contain ''.\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-192649_614750751",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>(7) Splitting Lines into Words</h2>\n<p>Before we can use the <code>wordcount()</code> function, we have to address two issues with the format of the DataFrame:</p>\n<ul>\n<li>The first issue is that  that we need to split each line by its spaces.</li>\n<li>The second issue is we need to filter out empty lines or words.</li>\n</ul>\n<p>Apply a transformation that will split each 'sentence' in the DataFrame by its spaces, and then transform from a DataFrame that contains lists of words into a DataFrame with each word in its own row.  To accomplish these two tasks you can use the <code>split</code> and <code>explode</code> functions found in <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.functions\">pyspark.sql.functions</a>.</p>\n<p>Once you have a DataFrame with one word per row you can apply the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.where\">DataFrame operation <code>where</code></a> to remove the rows that contain ''.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:281"
+		},
+		{
+			"text": "%pyspark\n\nfrom pyspark.sql.functions import split, explode, length\n\nwordsDF = shakespeareDF.select(explode(split('sentence', ' ')).alias('word'))\nshakeWordsDF = wordsDF.filter(length('word') > 0)\n\nshakeWordsDF.show()\nshakeWordsDFCount = shakeWordsDF.count()\nprint shakeWordsDFCount\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-175222_1697982578",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+-----------+\n|       word|\n+-----------+\n|        the|\n|    project|\n|  gutenberg|\n|      ebook|\n|         of|\n|        the|\n|   complete|\n|      works|\n|         of|\n|    william|\n|shakespeare|\n|         by|\n|    william|\n|shakespeare|\n|       this|\n|      ebook|\n|         is|\n|        for|\n|        the|\n|        use|\n+-----------+\nonly showing top 20 rows\n\n903709\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:282"
+		},
+		{
+			"text": "%md\n\n## (8) Finally, Count the words and Sort them\n\nWe now have a DataFrame that is only words.  Next, let's apply the `wordCount()` function to produce a list of word counts. We can view the first 20 words by using the `show()` action; however, we'd like to see the words in descending order of count, so we'll need to apply the [`orderBy` DataFrame method](http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.orderBy) to first sort the DataFrame that is returned from `wordCount()`.\n\nYou'll notice that many of the words are common English words. These are called stopwords. In a later lab, we will see how to eliminate them from the results.",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/markdown",
+				"editorHide": true,
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999704_-2059801354",
+			"id": "20160708-192734_332811400",
+			"result": {
+				"code": "SUCCESS",
+				"type": "HTML",
+				"msg": "<h2>(8) Finally, Count the words and Sort them</h2>\n<p>We now have a DataFrame that is only words.  Next, let's apply the <code>wordCount()</code> function to produce a list of word counts. We can view the first 20 words by using the <code>show()</code> action; however, we'd like to see the words in descending order of count, so we'll need to apply the <a href=\"http://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.DataFrame.orderBy\"><code>orderBy</code> DataFrame method</a> to first sort the DataFrame that is returned from <code>wordCount()</code>.</p>\n<p>You'll notice that many of the words are common English words. These are called stopwords. In a later lab, we will see how to eliminate them from the results.</p>\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:283"
+		},
+		{
+			"text": "%pyspark\n\nfrom pyspark.sql.functions import desc\n\nshakeWordCountDF = wordCount(shakeWordsDF)\n\ntopWordsAndCountsDF = shakeWordCountDF.orderBy(desc('count'))\ntopWordsAndCountsDF.show()\n",
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999705_-2060186103",
+			"id": "20160708-175246_643361093",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": "+----+-----+\n|word|count|\n+----+-----+\n| the|27825|\n| and|26791|\n|   i|20681|\n|  to|19261|\n|  of|18289|\n|   a|14667|\n| you|13716|\n|  my|12481|\n|that|11135|\n|  in|11027|\n|  is| 9621|\n| not| 8745|\n| for| 8261|\n|with| 8046|\n|  me| 7769|\n|  it| 7703|\n|  be| 7106|\n|this| 6894|\n|your| 6889|\n| his| 6857|\n+----+-----+\nonly showing top 20 rows\n\n"
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:284"
+		},
+		{
+			"dateUpdated": "Jul 24, 2016 00:00:00 AM",
+			"config": {
+				"colWidth": 12,
+				"editorMode": "ace/mode/scala",
+				"graph": {
+					"mode": "table",
+					"height": 300,
+					"optionOpen": false,
+					"keys": [
+
+					],
+					"values": [
+
+					],
+					"groups": [
+
+					],
+					"scatter": {
+					}
+				},
+				"enabled": true
+			},
+			"settings": {
+				"params": {
+				},
+				"forms": {
+				}
+			},
+			"jobName": "paragraph_1469484999705_-2060186103",
+			"id": "20160708-181052_829685605",
+			"result": {
+				"code": "SUCCESS",
+				"type": "TEXT",
+				"msg": ""
+			},
+			"dateCreated": "Jul 24, 2016 00:00:00 AM",
+			"dateStarted": "Jul 24, 2016 00:00:00 AM",
+			"dateFinished": "Jul 24, 2016 00:00:00 AM",
+			"status": "FINISHED",
+			"progressUpdateIntervalMs": 500,
+			"$$hashKey": "object:285"
+		}
+	],
+	"name": "Workshop: Spark SQL - WordCount Example",
+	"id": "2BQTWW6M3",
+	"angularObjects": {
+		"2BSFJV1FS:shared_process": [
+
+		],
+		"2BSNQG8WS:shared_process": [
+
+		],
+		"2BRVS8QXA:shared_process": [
+
+		],
+		"2BUCJ8TAF:shared_process": [
+
+		],
+		"2BRX3D844:shared_process": [
+
+		],
+		"2BRUK6QXU:shared_process": [
+
+		],
+		"2BQVX4SHW:shared_process": [
+
+		],
+		"2BSZZ45FS:shared_process": [
+
+		],
+		"2BU9WERHP:shared_process": [
+
+		],
+		"2BT3T98DM:shared_process": [
+
+		],
+		"2BQJ87G42:shared_process": [
+
+		],
+		"2BQPPP9W6:shared_process": [
+
+		],
+		"2BTY71GDZ:shared_process": [
+
+		],
+		"2BSP2JD87:shared_process": [
+
+		],
+		"2BRDX41NG:shared_process": [
+
+		],
+		"2BRJ1U1PV:shared_process": [
+
+		],
+		"2BTVC6QV1:shared_process": [
+
+		]
+	},
+	"config": {
+		"looknfeel": "default"
+	},
+	"info": {
+	}
+}
